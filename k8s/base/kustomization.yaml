@@ -5,3 +5,5 @@ namespace: voting-app
 
 resources:
   - namespace.yaml
+  - redis-deployment.yaml
+  - redis-service.yaml
