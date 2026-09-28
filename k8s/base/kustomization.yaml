@@ -7,3 +7,6 @@ resources:
   - namespace.yaml
   - redis-deployment.yaml
   - redis-service.yaml
+  - db-pvc.yaml
+  - db-deployment.yaml
+  - db-service.yaml
