@@ -18,8 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         app: [vote, result, worker]
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/voting-${{ matrix.app }}:${{ github.sha }}
     steps:
       - name: Check out the code
         uses: actions/checkout@v4
@@ -31,9 +34,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push the image
+      - name: Build the image
         uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.app }}
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/voting-${{ matrix.app }}:${{ github.sha }}
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Scan report (does not fail)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.cache/trivy:/root/.cache/ \
+            TRIVY_DIGEST_HERE image \
+            --severity HIGH,CRITICAL --exit-code 0 \
+            $IMAGE
+
+      - name: Gate on any CRITICAL
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.cache/trivy:/root/.cache/ \
+            TRIVY_DIGEST_HERE image \
+            --severity CRITICAL --exit-code 1 \
+            $IMAGE
+
+      - name: Gate on fixable HIGH
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.cache/trivy:/root/.cache/ \
+            TRIVY_DIGEST_HERE image \
+            --severity HIGH --ignore-unfixed --exit-code 1 \
+            $IMAGE
+
+      - name: Push the image
+        run: docker push $IMAGE
